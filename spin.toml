@@ -1,0 +1,23 @@
+#:schema https://schemas.spinframework.dev/spin/manifest-v2/latest.json
+
+spin_manifest_version = 2
+
+[application]
+name = "token-logos-rs"
+version = "0.1.0"
+authors = ["Sem <931684+sembrestels@users.noreply.github.com>"]
+description = "Lightweight HTTP service that proxies token logos from CoinGecko"
+
+[[trigger.http]]
+route = "/..."
+component = "token-logos-rs"
+
+[component.token-logos-rs]
+source = "target/wasm32-wasip1/release/token_logos_rs.wasm"
+allowed_outbound_hosts = ["https://api.coingecko.com", "https://tokens.coingecko.com"]
+[component.token-logos-rs.build]
+command = "cargo build --target wasm32-wasip1 --release"
+watch = ["src/**/*.rs", "Cargo.toml"]
+
+[component.token-logos-rs.environment]
+SUPPORTED_CHAINS = "ethereum:1,optimistic-ethereum:10,arbitrum-one:42161,base:8453,polygon-pos:137,unichain:130,linea:59144"
