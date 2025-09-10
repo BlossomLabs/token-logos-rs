@@ -14,17 +14,11 @@ impl<T: Serialize + DeserializeOwned> Cache<T> {
     fn is_expired(&self) -> bool {
         self.expires_at < Self::now()
     }
-    fn cache_ttl() -> u64 {
-        env::var("CACHE_TTL_SECS")
-            .ok()
-            .and_then(|v| v.parse::<u64>().ok())
-            .unwrap_or(3600)
-    }
     fn now() -> u64 {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
     }
     fn new(value: T) -> Self {
-        Self { value, expires_at: Self::cache_ttl() + Self::now() }
+        Self { value, expires_at: cache_ttl_secs() + Self::now() }
     }
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         let bytes = serde_json::to_vec(self)?;
@@ -58,7 +52,8 @@ impl<T: Serialize + DeserializeOwned> Cache<T> {
 }
 
 pub fn get_url_from_cache(chain_id: &str, address: &str) -> anyhow::Result<Option<String>> {
-    let value = Cache::<TokenList>::get_value(&chain_id)?;
+    let key = format!("tokenlist:{}", chain_id);
+    let value = Cache::<TokenList>::get_value(&key)?;
     if let Some(value) = value {
         let url = value.tokens.iter().find(|token| token.address.to_lowercase() == address.to_lowercase()).and_then(|token| token.logo_uri.clone());
         return Ok(url);
@@ -67,7 +62,8 @@ pub fn get_url_from_cache(chain_id: &str, address: &str) -> anyhow::Result<Optio
 }
 
 pub fn set_urls_in_cache(chain_id: &str, token_list: TokenList) -> anyhow::Result<()> {
-    Cache::<TokenList>::set_value(chain_id, token_list)?;
+    let key = format!("tokenlist:{}", chain_id);
+    Cache::<TokenList>::set_value(&key, token_list)?;
     Ok(())
 }
 
@@ -77,4 +73,11 @@ pub fn clear_cache() -> anyhow::Result<()> {
         store.delete(&key)?;
     }
     Ok(())
+}
+
+pub fn cache_ttl_secs() -> u64 {
+    env::var("CACHE_TTL_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(3600)
 }

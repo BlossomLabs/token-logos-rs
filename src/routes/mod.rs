@@ -3,7 +3,7 @@ use spin_sdk::http::{Request, Response};
 use crate::config::get_network_id;
 use crate::constants::{ETH_LOGO_URL, POL_LOGO_URL, ZERO_ADDRESS};
 use crate::services::coingecko::fetch_token_list;
-use crate::services::cache::{get_url_from_cache, set_urls_in_cache, clear_cache};
+use crate::services::cache::{get_url_from_cache, set_urls_in_cache, clear_cache, cache_ttl_secs};
 
 pub async fn route_request(req: Request) -> anyhow::Result<Response> {
     println!("Handling request to {:?}", req.header("spin-full-url"));
@@ -47,12 +47,15 @@ fn main_route() -> anyhow::Result<Response> {
 }
 
 async fn handle_token_route(chain_id: &str, address: &str) -> anyhow::Result<Response> {
+    let cache_control = format!("public, max-age={}", cache_ttl_secs());
+
     if address == ZERO_ADDRESS {
         let logo_url = if chain_id != "137" { ETH_LOGO_URL } else { POL_LOGO_URL };
         return Ok(
             Response::builder()
                 .status(302)
                 .header("location", logo_url)
+                .header("cache-control", &cache_control)
                 .build(),
         );
     }
@@ -76,6 +79,7 @@ async fn handle_token_route(chain_id: &str, address: &str) -> anyhow::Result<Res
                 Response::builder()
                     .status(302)
                     .header("location", logo_url)
+                    .header("cache-control", &cache_control)
                     .build(),
             );
         }
@@ -84,6 +88,7 @@ async fn handle_token_route(chain_id: &str, address: &str) -> anyhow::Result<Res
         Response::builder()
             .status(404)
             .header("content-type", "text/plain")
+            .header("cache-control", &cache_control)
             .body("Logo not found")
             .build(),
     )
@@ -95,6 +100,7 @@ fn clear_cache_route() -> anyhow::Result<Response> {
         Response::builder()
             .status(200)
             .header("content-type", "text/plain")
+            .header("cache-control", "no-store")
             .body("Cache cleared")
             .build(),
     )
