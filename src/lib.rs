@@ -2,7 +2,6 @@ use spin_sdk::http::{IntoResponse, Request, Response};
 use spin_sdk::http_component;
 
 mod constants;
-mod models;
 mod config;
 mod services;
 mod routes;

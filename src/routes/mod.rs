@@ -3,6 +3,7 @@ use spin_sdk::http::{Request, Response};
 use crate::config::get_network_id;
 use crate::constants::{ETH_LOGO_URL, POL_LOGO_URL, ZERO_ADDRESS};
 use crate::services::coingecko::fetch_token_list;
+use crate::services::cache::{get_url_from_cache, set_urls_in_cache, clear_cache};
 
 pub async fn route_request(req: Request) -> anyhow::Result<Response> {
     println!("Handling request to {:?}", req.header("spin-full-url"));
@@ -16,6 +17,10 @@ pub async fn route_request(req: Request) -> anyhow::Result<Response> {
         let chain_id = segments[1];
         let address = segments[2];
         return handle_token_route(chain_id, address).await;
+    }
+
+    if segments.len() == 1 && segments[0] == "clear-cache" {
+        return clear_cache_route();
     }
 
     if segments.len() == 1 && segments[0] == "" {
@@ -57,31 +62,40 @@ async fn handle_token_route(chain_id: &str, address: &str) -> anyhow::Result<Res
         anyhow::bail!("Unsupported chain_id: {}", chain_id);
     }
 
-    let token_list = fetch_token_list(&network_id).await?;
-    
-    let logo_url = token_list
-        .tokens
-        .iter()
-        .find(|token| token.address.eq_ignore_ascii_case(address))
-        .and_then(|t| t.logo_uri.clone())
-        .unwrap_or_default();
+    let mut logo_url = get_url_from_cache(chain_id, address)?;
 
-    if logo_url.is_empty() {
-        return Ok(
-            Response::builder()
-                .status(404)
-                .header("content-type", "text/plain")
-                .body("Logo not found")
-                .build(),
-        );
+    if let None = logo_url {
+        let token_list = fetch_token_list(&network_id).await?;
+        set_urls_in_cache(chain_id, token_list)?;
+        logo_url = get_url_from_cache(chain_id, address)?;
     }
 
+    if let Some(logo_url) = logo_url {
+        if !logo_url.is_empty() {
+            return Ok(
+                Response::builder()
+                    .status(302)
+                    .header("location", logo_url)
+                    .build(),
+            );
+        }
+    }
     Ok(
         Response::builder()
-            .status(302)
-            .header("location", logo_url)
+            .status(404)
+            .header("content-type", "text/plain")
+            .body("Logo not found")
             .build(),
     )
 }
 
-
+fn clear_cache_route() -> anyhow::Result<Response> {
+    clear_cache()?;
+    Ok(
+        Response::builder()
+            .status(200)
+            .header("content-type", "text/plain")
+            .body("Cache cleared")
+            .build(),
+    )
+}
