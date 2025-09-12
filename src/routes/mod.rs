@@ -6,7 +6,6 @@ use crate::services::coingecko::fetch_token_list;
 use crate::services::cache::{get_url_from_cache, set_urls_in_cache, clear_cache, cache_ttl_secs};
 
 pub async fn route_request(req: Request) -> anyhow::Result<Response> {
-    println!("Handling request to {:?}", req.header("spin-full-url"));
     let path = req.path();
     let segments: Vec<&str> = path
         .trim_start_matches('/')
@@ -69,8 +68,12 @@ async fn handle_token_route(chain_id: &str, address: &str) -> anyhow::Result<Res
 
     if let None = logo_url {
         let token_list = fetch_token_list(&network_id).await?;
+        logo_url = token_list.get_logo_url(address);
+        match &logo_url {
+            Some(logo_url) => println!("Logo URL found in token list: {}", logo_url),
+            None => println!("Logo URL not found in token list"),
+        }
         set_urls_in_cache(chain_id, token_list)?;
-        logo_url = get_url_from_cache(chain_id, address)?;
     }
 
     if let Some(logo_url) = logo_url {

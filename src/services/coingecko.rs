@@ -16,6 +16,12 @@ pub struct TokenList {
     pub tokens: Vec<TokenInfo>,
 }
 
+impl TokenList {
+    pub fn get_logo_url(&self, address: &str) -> Option<String> {
+        self.tokens.iter().find(|token| token.address.to_lowercase() == address.to_lowercase()).and_then(|token| token.logo_uri.clone())
+    }
+}
+
 /// Fetch the token list from CoinGecko for a given network id
 pub async fn fetch_token_list(network_id: &str) -> anyhow::Result<TokenList> {
     let url = format!("https://tokens.coingecko.com/{}/all.json", network_id);
